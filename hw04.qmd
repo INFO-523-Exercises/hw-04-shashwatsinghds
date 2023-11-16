@@ -1,0 +1,33 @@
+---
+title: "hw04"
+author: "Shashwat Singh"
+format: html
+editor: visual
+description: "Regression in R"
+---
+
+## **Install Required Packages**
+
+```{r}
+# Required packages
+if (!require(pacman))
+  install.packages("pacman")
+
+pacman::p_load(tidymodels,
+               tidyverse,
+               ranger,
+               randomForest,
+               glmnet,
+               gridExtra)
+
+# Global ggplot theme
+theme_set(theme_bw() + theme(legend.position = "top"))
+```
+
+Regression is a modeling technique for predicting quantitative-valued target attributes. The goals for this tutorial are as follows: 1. To provide examples of using different regression methods from the tidymodels package.
+
+2. To demonstrate the problem of model overfitting due to correlated attributes in the data.
+
+3. To illustrate how regularization can be used to avoid model overfitting.
+
+## **Synthetic Data Generation**
