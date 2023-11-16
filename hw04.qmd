@@ -32,37 +32,55 @@ pacman::p_load(tidymodels,
 theme_set(theme_bw() + theme(legend.position = "top"))
 ```
 
+## Import Dataset
+
+```{r}
+
+# Reading the CSV from the URL
+stocks<- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-02-07/big_tech_stock_prices.csv')
+
+#Initial analysis of dataset
+stocks|> head()
+```
+
+## Regression
+
 Regression is a modeling technique for predicting quantitative-valued target attributes. The goals for this tutorial are as follows: 1. To provide examples of using different regression methods from the tidymodels package.
 
 2. To demonstrate the problem of model overfitting due to correlated attributes in the data.
 
 3. To illustrate how regularization can be used to avoid model overfitting.
 
-## **Synthetic Data Generation**
+## **Stock Data Generation**
 
 To illustrate how linear regression works, we first generate a random 1-dimensional vector of predictor variables, x, from a uniform distribution. The response variable y has a linear relationship with x according to the following equation: y = -3x + 1 + epsilon, where epsilon corresponds to random noise sampled from a Gaussian distribution with mean 0 and standard deviation of 1.
 
 ```{r}
 # Parameters
-seed <- 1            # seed for random number generation 
-numInstances <- 200  # number of data instances
+seed <- 1 # Setting seed to 1           
+numInstances <- nrow(stocks) #Assigning number of rows 
 
 # Set seed
 set.seed(seed)
 
-# Generate data
-X <- matrix(runif(numInstances), ncol=1)
-y_true <- -3*X + 1 
+# Assigning y=f(x) such that we are checking whether closing price is a function of open price
+X <- stocks$open
+y_true <- stocks$close
+
+# Adding Gaussian Additive noise
 y <- y_true + matrix(rnorm(numInstances), ncol=1)
 
 # Plot
 ggplot() +
   geom_point(aes(x=X, y=y), color="black") +
-  geom_line(aes(x=X, y=y_true), color="blue", linewidth=1) +
-  ggtitle('True function: y = -3X + 1') +
-  xlab('X') +
-  ylab('y')
+  geom_line(aes(x=X, y=y_true), color="blue", linewidth=1,alpha=0.5) +
+  ggtitle('Relation Between Closing and Opening Price') +
+  theme_minimal()+
+  xlab('Open') +
+  ylab('Close')
 ```
+
+-   The data looks linear in nature and the opening price show a direct relation with the closing price.
 
 ## **Multiple Linear Regression** 
 
@@ -106,6 +124,32 @@ test_data <- testing(split_obj)
 # Extract X_train, X_test, y_train, y_test
 X_train <- train_data$X
 y_train <- train_data$y
+
+X_test <- test_data$X
+y_test <- test_data$y
+
+
+# Train/test split
+library(rsample)
+
+numTrain <- 5000
+numTest <-numInstances - numTrain
+
+set.seed(123)
+
+data <- tibble(X=X, y=y)
+
+split_obj <-initial_split(data, prop = numTrain/numInstances)
+
+# Extract train and test data 
+
+train_data <- training(split_obj)
+test_data <-  testing(split_obj)
+
+# Extract X_train, X_test , y_train, y_test
+
+X_train <-train_data$X
+y_train <-train_data$y
 
 X_test <- test_data$X
 y_test <- test_data$y
