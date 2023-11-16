@@ -45,7 +45,9 @@ stocks|> head()
 
 ## Regression
 
-Regression is a modeling technique for predicting quantitative-valued target attributes. The goals for this tutorial are as follows:  1. To provide examples of using different regression methods for the stock prices dataset.
+Regression is a modeling technique for predicting quantitative-valued target attributes. The goals for this tutorial are as follows:
+
+1\. To provide examples of using different regression methods for the stock prices dataset.
 
 2.  To demonstrate the problem of model overfitting due to correlated attributes in the data.
 
@@ -209,7 +211,7 @@ cat("Slope =", slope, "\n")
 
 ```
 
--   Slope is positive i.e. the Close Price is directly proportional to Open Price.
+-   Slope is positive i.e. the Adjusted Close Price is directly proportional to Open Price.
 
 ```{r}
 cat("Intercept =", intercept, "\n")
