@@ -6,6 +6,14 @@ editor: visual
 description: "Regression in R"
 ---
 
+## **Dataset Description**
+
+This dataset consists of the daily stock prices and volume of 14 different tech companies, including Apple (AAPL), Amazon (AMZN), Alphabet (GOOGL), and Meta Platforms (META) and more!
+
+## **Question to be Answered**
+
+How do daily opening prices, trading volumes, and historical trends influence the adjusted closing prices of stocks?
+
 ## **Install Required Packages**
 
 ```{r}
@@ -77,3 +85,28 @@ Given the input dataset, the following steps are performed:
 4\. Evaluate the performance of the model.
 
 5\. Postprocessing: Visualizing the fitted model.
+
+#### Step 1: Split Input Data into Training and Test Sets
+
+```{r}
+# Train/test split
+numTrain <- 20   # number of training instances
+numTest <- numInstances - numTrain
+
+set.seed(123) # For reproducibility
+
+data <- tibble(X = X, y = y)
+
+split_obj <- initial_split(data, prop = numTrain/numInstances)
+
+# Extract train and test data
+train_data <- training(split_obj)
+test_data <- testing(split_obj)
+
+# Extract X_train, X_test, y_train, y_test
+X_train <- train_data$X
+y_train <- train_data$y
+
+X_test <- test_data$X
+y_test <- test_data$y
+```
