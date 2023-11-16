@@ -45,7 +45,7 @@ stocks|> head()
 
 ## Regression
 
-Regression is a modeling technique for predicting quantitative-valued target attributes. The goals for this tutorial are as follows: 1. To provide examples of using different regression methods from the tidymodels package.
+Regression is a modeling technique for predicting quantitative-valued target attributes. The goals for this tutorial are as follows:  1. To provide examples of using different regression methods for the stock prices dataset.
 
 2.  To demonstrate the problem of model overfitting due to correlated attributes in the data.
 
@@ -63,7 +63,7 @@ set.seed(seed)
 
 # Assigning y=f(x) such that we are checking whether closing price is a function of open price
 X <- stocks$open
-y_true <- stocks$close
+y_true <- stocks$adj_close
 
 # Adding Gaussian Additive noise
 y <- y_true + matrix(rnorm(numInstances), ncol=1)
@@ -72,13 +72,13 @@ y <- y_true + matrix(rnorm(numInstances), ncol=1)
 ggplot() +
   geom_point(aes(x=X, y=y), color="black") +
   geom_line(aes(x=X, y=y_true), color="blue", linewidth=1,alpha=0.5) +
-  ggtitle('Relation Between Closing and Opening Price') +
+  ggtitle('Relation Between Adjusted Closing and Opening Price') +
   theme_minimal()+
   xlab('Open') +
-  ylab('Close')
+  ylab('Adj. Close')
 ```
 
--   The data looks linear in nature and the opening price show a direct relation with the closing price.
+-   The data looks linear in nature and the opening price show a direct relation with the adjusted closing price. For the datapoints between values 100-200, the plot becomes a little non-linear, but overall, a linear relation can be seen.
 
 ## **Multiple Linear Regression**
 
@@ -106,7 +106,7 @@ Given the input dataset, the following steps are performed:
 
 ```{r}
 # Train/test split
-numTrain <- 5000   # number of training instances
+numTrain <- 1000   # number of training instances
 numTest <- numInstances - numTrain
 
 set.seed(123) # For reproducibility
@@ -188,9 +188,13 @@ r2_value <- rsq(eval_data, truth = truth, estimate = estimate)
 cat("Root mean squared error =", sprintf("%.4f", rmse_value$.estimate), "\n")
 ```
 
+-   The relatively low RMS value(considering that we are trying to predict stock prices which are highly volatile) suggests that the true and predicted values are very close to each other.
+
 ```{r}
 cat('R-squared =', sprintf("%.4f", r2_value$.estimate), "\n")
 ```
+
+Rsquared value of 0.9889 suggests that the model performs well on new data and generalises well.
 
 #### Step 5: Postprocessing
 
@@ -223,7 +227,7 @@ ggplot() +
   ylab('y')
 ```
 
--   The output function shows that the relationship is almost perfectly linear.
+-   The output function shows that the relationship is almost perfectly linear, i.e very close to y=x
 
 ## **Effect of Correlated Attributes**
 
@@ -235,7 +239,7 @@ We will illustrate how the presence of correlated attributes can affect the perf
 set.seed(1)
 X2 <- stocks$high
 X3 <- stocks$low
-X4 <- stocks$adj_close
+X4 <- stocks$close
 X5 <- stocks$volume
 
 # Create plots
@@ -385,7 +389,7 @@ ggplot(results, aes(x = Sum_of_Absolute_Weights)) +
   theme_minimal()
 ```
 
--   From the above graph, it is evident that the Error in Testing is high when compared to Training. This means that the model is overfitting to the training set.
+-   From the above graph, it is evident that the Error in Testing is very high when compared to Training. This means that the model is overfitting to the training set.
 
 ```{r}
 results
@@ -447,7 +451,9 @@ final_results
 
 -   By setting some coefficients to 0, ridge regression effectively selects a subset of the most important features, promoting model simplicity and preventing overfitting.
 
--   By setting an appropriate value for the hyperparameter, �, we can control the sum of absolute weights, thus producing a test error that is quite comparable to that of MLR without the correlated attributes.
+-   By setting an appropriate value for the hyperparameter, we can control the sum of absolute weights, thus producing a test error that is quite comparable to that of MLR without the correlated attributes.
+
+-   Ridge Regression has done a good job of reducing the test error and generalizing the model for higher model order.
 
 ## **Lasso Regression**
 
@@ -496,3 +502,173 @@ lasso_results
 -   There is marginal improvement in the errors. Lasso regression has set the coefficients to 0, thus promoting model simplicity.
 
 ## **Hyperparameter Selection via Cross-Validation**
+
+While both ridge and lasso regression methods can potentially alleviate the model overfitting problem, one of the challenges is how to select the appropriate hyperparameter value, α. In the examples shown below, we demonstrate examples of using a 5-fold cross-validation method to select the best hyperparameter of the model. More details about the model selection problem and cross-validation method are described in Chapter 3 of the book.
+
+In the first sample code below, we vary the hyperparameter α for ridge regression to a range between 0.2 and 1.0. Using the `RidgeCV()` function, we can train a model with 5-fold cross-validation and select the best hyperparameter value.
+
+```{r}
+# Combine training data
+y_train <- as.vector(y_train)
+
+train_data <- tibble(y = y_train, X1 = X_train5[,1], X2 = X_train5[,2], 
+                     X3 = X_train5[,3], X4 = X_train5[,4], X5 = X_train5[,5])
+
+# Define recipe
+recipe_obj <- recipe(y ~ ., data = train_data) %>%
+  step_normalize(all_predictors()) |>
+  prep()
+
+# Define the ridge specification
+ridge_spec <- linear_reg(penalty = tune(), mixture = 0) %>% 
+  set_engine("glmnet")
+
+# Ridge workflow
+ridge_wf <- workflow() |>
+  add_model(ridge_spec) |>
+  add_recipe(recipe_obj)
+
+# Grid of alphas
+alphas <- tibble(penalty = c(0.2, 0.4, 0.6, 0.8, 1.0))
+
+# Tune
+tune_results <- 
+  ridge_wf |>
+  tune_grid(
+  resamples = bootstraps(train_data, times = 5),
+  grid = alphas
+)
+
+
+# Extract best parameters
+best_params <- tune_results %>% select_best("rmse")
+
+# Refit the model
+ridge_fit <- ridge_spec %>%
+  finalize_model(best_params) %>%
+  fit(y ~ ., data = train_data)
+
+# Extract coefficients
+ridge_coefs <- ridge_fit$fit$beta[,1]
+
+# Predictions
+y_pred_train_ridge <- predict(ridge_fit, new_data = train_data)$.pred
+y_pred_test_ridge <- predict(ridge_fit, new_data = tibble(X1 = X_test5[,1], X2 = X_test5[,2], 
+                                                          X3 = X_test5[,3], X4 = X_test5[,4], X5 = X_test5[,5]))$.pred
+
+# Create the model string
+model6 <- sprintf("%.2f X + %.2f X2 + %.2f X3 + %.2f X4 + %.2f X5 + %.2f", 
+                  ridge_coefs[2], ridge_coefs[3], ridge_coefs[4], 
+                  ridge_coefs[5], ridge_coefs[6], ridge_fit$fit$a0[1])
+
+values6 <- c(model6, 
+             sqrt(mean((y_train - y_pred_train_ridge)^2)),
+             sqrt(mean((y_test - y_pred_test_ridge)^2)),
+             sum(abs(ridge_coefs[-1])) + abs(ridge_fit$fit$a0[1]))
+
+# Make the results tibble
+ridge_results <- tibble(Model = "RidgeCV",
+                        `Train error` = values6[2], 
+                        `Test error` = values6[3], 
+                        `Sum of Absolute Weights` = values6[4])
+
+cat("Selected alpha =", best_params$penalty, "\n")
+
+
+
+
+```
+
+-   Hyperparameter is selected as 0.2
+
+```{r}
+all_results <- bind_rows(results, ridge_results)
+all_results
+```
+
+-   There is minimal to no improvement when using hyperparameter selection.
+
+Applying Cross-Validation
+
+```{r}
+set.seed(1234)
+
+# Ensure y_train is a vector
+y_train <- as.vector(y_train)
+
+# Combine training data
+train_data <- tibble(y = y_train, X1 = X_train5[,1], X2 = X_train5[,2], 
+                     X3 = X_train5[,3], X4 = X_train5[,4], X5 = X_train5[,5])
+
+# Define recipe
+recipe_obj_lasso <- recipe(y ~ ., data = train_data) %>%
+  step_normalize(all_predictors()) |>
+  prep()
+
+# Define the lasso specification
+lasso_spec <- linear_reg(penalty = tune(), mixture = 1) %>% 
+  set_engine("glmnet")
+
+# Lasso workflow
+lasso_wf <- workflow() |>
+  add_recipe(recipe_obj_lasso)
+
+# Lasso fit
+lasso_fit <- lasso_wf |>
+  add_model(lasso_spec) |>
+  fit(data = train_data)
+
+# Grid of alphas for Lasso
+lambda_grid <- grid_regular(penalty(), levels = 50)
+
+# Tune
+tune_results_lasso <- 
+  tune_grid(lasso_wf |> add_model(lasso_spec),
+  resamples = bootstraps(train_data, times = 5),
+  grid = lambda_grid
+)
+
+# Extract best parameters for Lasso
+best_params_lasso <- tune_results_lasso %>% select_best("rmse")
+
+# Refit the model using Lasso
+lasso_fit <- lasso_spec %>%
+  finalize_model(best_params_lasso) %>%
+  fit(y ~ ., data = train_data)
+
+# Extract coefficients
+lasso_coefs <- lasso_fit$fit$beta[,1]
+
+# Predictions using Lasso
+y_pred_train_lasso <- predict(lasso_fit, new_data = train_data)$.pred
+y_pred_test_lasso <- predict(lasso_fit, new_data = tibble(X1 = X_test5[,1], X2 = X_test5[,2], 
+                                                          X3 = X_test5[,3], X4 = X_test5[,4], X5 = X_test5[,5]))$.pred
+
+# Create the model string for Lasso
+model7 <- sprintf("%.2f X + %.2f X2 + %.2f X3 + %.2f X4 + %.2f X5 + %.2f", 
+                  lasso_coefs[2], lasso_coefs[3], lasso_coefs[4], 
+                  lasso_coefs[5], lasso_coefs[6], lasso_fit$fit$a0[1])
+
+values7 <- c(model7, 
+             sqrt(mean((y_train - y_pred_train_lasso)^2)),
+             sqrt(mean((y_test - y_pred_test_lasso)^2)),
+             sum(abs(lasso_coefs[-1])) + abs(lasso_fit$fit$a0[1]))
+
+# Make the results tibble for Lasso
+lasso_results <- tibble(Model = "LassoCV",
+                        `Train error` = values7[2], 
+                        `Test error` = values7[3], 
+                        `Sum of Absolute Weights` = values7[4])
+
+cat("Selected alpha for Lasso =", best_params_lasso$penalty, "\n")
+```
+
+```{r}
+lasso_results
+```
+
+-   Lasso regression has worked better on hyperparameter selection than the previous. The test error is significantly reduced.
+
+## Answer of the proposed question: How do daily opening prices, trading volumes, and historical trends influence the adjusted closing prices of stocks?
+
+The relationship between opening prices and the adjusted closing price of the stock is notably strong, as indicated by the results of a linear regression analysis. However, when employing multiple regression, the model's performance deteriorated, primarily due to the presence of high collinearity among the features
