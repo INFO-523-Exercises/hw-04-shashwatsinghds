@@ -108,7 +108,7 @@ Given the input dataset, the following steps are performed:
 
 ```{r}
 # Train/test split
-numTrain <- 20   # number of training instances
+numTrain <- 5000   # number of training instances
 numTest <- numInstances - numTrain
 
 set.seed(123) # For reproducibility
@@ -129,28 +129,81 @@ X_test <- test_data$X
 y_test <- test_data$y
 
 
-# Train/test split
-library(rsample)
-
-numTrain <- 5000
-numTest <-numInstances - numTrain
-
-set.seed(123)
-
-data <- tibble(X=X, y=y)
-
-split_obj <-initial_split(data, prop = numTrain/numInstances)
-
-# Extract train and test data 
-
-train_data <- training(split_obj)
-test_data <-  testing(split_obj)
-
-# Extract X_train, X_test , y_train, y_test
-
-X_train <-train_data$X
-y_train <-train_data$y
-
-X_test <- test_data$X
-y_test <- test_data$y
 ```
+
+- Splitting the data into Training and Test sets for Validation(to avoid overfitting)
+
+#### Step 2: Fit regression model to Training Set
+```{r}
+# Create a linear regression model specification
+lin_ref_spec <-  linear_reg() |>
+  set_engine("lm")
+
+
+# Fit the model to the training data
+lin_reg_fit <-lin_ref_spec |>
+  fit(y~ X, data = train_data)
+
+
+```
+- Fitting the created model to the training set
+
+#### Step 3: Apply Model to the Test Set
+
+```{r}
+
+# Apply model to the test set 
+y_pred_test <- predict(lin_reg_fit, new_data =test_data) |>
+  pull(.pred)
+
+```
+
+- Applying the model to the test dataset(The model trained on training data has never seen test data)
+
+
+#### Step 4: Evaluate Model Performance on the test set
+
+```{r}
+# Plotting true vs predicted values
+ggplot() + 
+  geom_point(aes(x = as.vector(y_test), y = y_pred_test), color = 'blue') +
+  ggtitle('Comparing true and predicted values for test set') +
+  xlab('True values for y') +
+  ylab('Predicted values for y')
+
+```
+- We can see from the plot that the the predicted and true values are close to each other. The model has performed well on the test data.
+
+
+```{r}
+# Prepare data for yardstick evaluation
+eval_data <- tibble(
+  truth = as.vector(y_test),
+  estimate = y_pred_test
+)
+
+# Model evaluation
+rmse_value <- rmse(data = eval_data, truth = truth, estimate = estimate)
+r2_value <- rsq(eval_data, truth = truth, estimate = estimate)
+
+cat("Root mean squared error =", sprintf("%.4f", rmse_value$.estimate), "\n")
+```
+
+```{r}
+cat('R-squared =', sprintf("%.4f", r2_value$.estimate), "\n")
+```
+
+#### Step 5: Postprocessing
+
+```{r}
+# Display model parameters
+coef_values <- coef(lin_reg_fit$fit)  # Extract coefficients
+slope <- coef_values["X"]
+intercept <- coef_values["(Intercept)"]
+
+cat("Slope =", slope, "\n")
+
+
+```
+
+- Slope is positive i.e. the Close Price is directly proportional to Open Price.
