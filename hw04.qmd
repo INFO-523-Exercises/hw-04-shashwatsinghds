@@ -47,13 +47,11 @@ stocks|> head()
 
 Regression is a modeling technique for predicting quantitative-valued target attributes. The goals for this tutorial are as follows: 1. To provide examples of using different regression methods from the tidymodels package.
 
-2. To demonstrate the problem of model overfitting due to correlated attributes in the data.
+2.  To demonstrate the problem of model overfitting due to correlated attributes in the data.
 
-3. To illustrate how regularization can be used to avoid model overfitting.
+3.  To illustrate how regularization can be used to avoid model overfitting.
 
 ## **Stock Data Generation**
-
-To illustrate how linear regression works, we first generate a random 1-dimensional vector of predictor variables, x, from a uniform distribution. The response variable y has a linear relationship with x according to the following equation: y = -3x + 1 + epsilon, where epsilon corresponds to random noise sampled from a Gaussian distribution with mean 0 and standard deviation of 1.
 
 ```{r}
 # Parameters
@@ -82,7 +80,7 @@ ggplot() +
 
 -   The data looks linear in nature and the opening price show a direct relation with the closing price.
 
-## **Multiple Linear Regression** 
+## **Multiple Linear Regression**
 
 We will use Python's scikit-learn package to fit a multiple linear regression (MLR) model.
 
@@ -131,9 +129,10 @@ y_test <- test_data$y
 
 ```
 
-- Splitting the data into Training and Test sets for Validation(to avoid overfitting)
+-   Splitting the data into Training and Test sets for Validation(to avoid overfitting)
 
 #### Step 2: Fit regression model to Training Set
+
 ```{r}
 # Create a linear regression model specification
 lin_ref_spec <-  linear_reg() |>
@@ -146,7 +145,8 @@ lin_reg_fit <-lin_ref_spec |>
 
 
 ```
-- Fitting the created model to the training set
+
+-   Fitting the created model to the training set
 
 #### Step 3: Apply Model to the Test Set
 
@@ -158,8 +158,7 @@ y_pred_test <- predict(lin_reg_fit, new_data =test_data) |>
 
 ```
 
-- Applying the model to the test dataset(The model trained on training data has never seen test data)
-
+-   Applying the model to the test dataset(The model trained on training data has never seen test data)
 
 #### Step 4: Evaluate Model Performance on the test set
 
@@ -172,8 +171,8 @@ ggplot() +
   ylab('Predicted values for y')
 
 ```
-- We can see from the plot that the the predicted and true values are close to each other. The model has performed well on the test data.
 
+-   We can see from the plot that the the predicted and true values are close to each other. The model has performed well on the test data.
 
 ```{r}
 # Prepare data for yardstick evaluation
@@ -206,4 +205,192 @@ cat("Slope =", slope, "\n")
 
 ```
 
-- Slope is positive i.e. the Close Price is directly proportional to Open Price.
+-   Slope is positive i.e. the Close Price is directly proportional to Open Price.
+
+```{r}
+cat("Intercept =", intercept, "\n")
+```
+
+```{r}
+### Step 4: Postprocessing
+
+# Plot outputs
+ggplot() +
+  geom_point(aes(x = as.vector(X_test), y = as.vector(y_test)), color = 'black') +
+  geom_line(aes(x = as.vector(X_test), y = y_pred_test), color = 'blue', linewidth = 1) +
+  ggtitle(sprintf('Predicted Function: y = %.2fX + %.2f', slope, intercept)) +
+  xlab('X') +
+  ylab('y')
+```
+
+-   The output function shows that the relationship is almost perfectly linear.
+
+## **Effect of Correlated Attributes**
+
+We will illustrate how the presence of correlated attributes can affect the performance of regression models.
+
+```{r}
+
+# Considering other features in the dataset
+set.seed(1)
+X2 <- stocks$high
+X3 <- stocks$low
+X4 <- stocks$adj_close
+X5 <- stocks$volume
+
+# Create plots
+plot1 <- ggplot() +
+  geom_point(aes(X, X2), color='black') +
+  xlab('X') + ylab('X2') +
+  ggtitle(sprintf("Correlation between X and X2 = %.4f", cor(X[-c((numInstances-numTest+1):numInstances)], X2[-c((numInstances-numTest+1):numInstances)])))
+
+plot2 <- ggplot() +
+  geom_point(aes(X2, X3), color='black') +
+  xlab('X2') + ylab('X3') +
+  ggtitle(sprintf("Correlation between X2 and X3 = %.4f", cor(X2[-c((numInstances-numTest+1):numInstances)], X3[-c((numInstances-numTest+1):numInstances)])))
+
+plot3 <- ggplot() +
+  geom_point(aes(X3, X4), color='black') +
+  xlab('X3') + ylab('X4') +
+  ggtitle(sprintf("Correlation between X3 and X4 = %.4f", cor(X3[-c((numInstances-numTest+1):numInstances)], X4[-c((numInstances-numTest+1):numInstances)])))
+
+plot4 <- ggplot() +
+  geom_point(aes(X4, X5), color='black') +
+  xlab('X4') + ylab('X5') +
+  ggtitle(sprintf("Correlation between X4 and X5 = %.4f", cor(X4[-c((numInstances-numTest+1):numInstances)], X5[-c((numInstances-numTest+1):numInstances)])))
+
+# Combine plots into a 2x2 grid
+grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
+
+```
+
+-   Plots 1(X-X2) , 2(X2-X3) and 3(X3-X4) have a strong correlation.
+
+-   X4 and X5 are not dependent on each other as evident from graph
+
+    Next, we create 4 additional versions of the training and test sets. The first version, X_train2 and X_test2 have 2 correlated predictor variables, X and X2. The second version, X_train3 and X_test3 have 3 correlated predictor variables, X, X2, and X3. The third version have 4 correlated variables, X, X2, X3, and X4 whereas the last version have 5 correlated variables, X, X2, X3, X4, and X5.
+
+    ```{r}
+    # Split data into training and testing sets
+    train_indices <- 1:(numInstances - numTest)
+    test_indices <- (numInstances - numTest + 1):numInstances
+
+    # Create combined training and testing sets
+    X_train2 <- cbind(X[train_indices], X2[train_indices])
+    X_test2 <- cbind(X[test_indices], X2[test_indices])
+
+    X_train3 <- cbind(X[train_indices], X2[train_indices], X3[train_indices])
+    X_test3 <- cbind(X[test_indices], X2[test_indices], X3[test_indices])
+
+    X_train4 <- cbind(X[train_indices], X2[train_indices], X3[train_indices], X4[train_indices])
+    X_test4 <- cbind(X[test_indices], X2[test_indices], X3[test_indices], X4[test_indices])
+
+    X_train5 <- cbind(X[train_indices], X2[train_indices], X3[train_indices], X4[train_indices], X5[train_indices])
+    X_test5 <- cbind(X[test_indices], X2[test_indices], X3[test_indices], X4[test_indices], X5[test_indices])
+    ```
+
+Below, we train 4 new regression models based on the 4 versions of training and test data created in the previous step.
+
+```{r}
+# Convert matrices to tibbles for training
+train_data2 <- tibble(X1 = X_train2[,1], X2 = X_train2[,2], y = y_train)
+train_data3 <- tibble(X1 = X_train3[,1], X2 = X_train3[,2], X3 = X_train3[,3], y = y_train)
+train_data4 <- tibble(X1 = X_train4[,1], X2 = X_train4[,2], X3 = X_train4[,3], X4 = X_train4[,4], y = y_train)
+train_data5 <- tibble(X1 = X_train5[,1], X2 = X_train5[,2], X3 = X_train5[,3], X4 = X_train5[,4], X5 = X_train5[,5], y = y_train)
+
+# Train models
+regr2_spec <- linear_reg() %>% set_engine("lm")
+regr2_fit <- regr2_spec %>% fit(y ~ X1 + X2, data = train_data2)
+
+regr3_spec <- linear_reg() %>% set_engine("lm")
+regr3_fit <- regr3_spec %>% fit(y ~ X1 + X2 + X3, data = train_data3)
+
+regr4_spec <- linear_reg() %>% set_engine("lm")
+regr4_fit <- regr4_spec %>% fit(y ~ X1 + X2 + X3 + X4, data = train_data4)
+
+regr5_spec <- linear_reg() %>% set_engine("lm")
+regr5_fit <- regr5_spec %>% fit(y ~ X1 + X2 + X3 + X4 + X5, data = train_data5)
+```
+
+All 4 versions of the regression models are then applied to the training and test sets.
+
+```{r}
+# Convert matrices to data.frames for predictions
+new_train_data2 <- setNames(as.data.frame(X_train2), c("X1", "X2"))
+new_test_data2 <- setNames(as.data.frame(X_test2), c("X1", "X2"))
+
+new_train_data3 <- setNames(as.data.frame(X_train3), c("X1", "X2", "X3"))
+new_test_data3 <- setNames(as.data.frame(X_test3), c("X1", "X2", "X3"))
+
+new_train_data4 <- setNames(as.data.frame(X_train4), c("X1", "X2", "X3", "X4"))
+new_test_data4 <- setNames(as.data.frame(X_test4), c("X1", "X2", "X3", "X4"))
+
+new_train_data5 <- setNames(as.data.frame(X_train5), c("X1", "X2", "X3", "X4", "X5"))
+new_test_data5 <- setNames(as.data.frame(X_test5), c("X1", "X2", "X3", "X4", "X5"))
+
+# Predictions
+y_pred_train2 <- predict(regr2_fit, new_data = new_train_data2)
+y_pred_test2 <- predict(regr2_fit, new_data = new_test_data2)
+
+y_pred_train3 <- predict(regr3_fit, new_data = new_train_data3)
+y_pred_test3 <- predict(regr3_fit, new_data = new_test_data3)
+
+y_pred_train4 <- predict(regr4_fit, new_data = new_train_data4)
+y_pred_test4 <- predict(regr4_fit, new_data = new_test_data4)
+
+y_pred_train5 <- predict(regr5_fit, new_data = new_train_data5)
+y_pred_test5 <- predict(regr5_fit, new_data = new_test_data5)
+```
+
+```{r}
+# Extract coefficients and intercepts
+get_coef <- function(model) {
+  coef <- coefficients(model$fit)
+  coef
+}
+
+# Calculate RMSE
+calculate_rmse <- function(actual, predicted) {
+  rmse <- sqrt(mean((actual - predicted)^2))
+  rmse
+}
+
+results <- tibble(
+  Model = c(sprintf("%.2f X + %.2f", get_coef(regr2_fit)['X1'], get_coef(regr2_fit)['(Intercept)']),
+            sprintf("%.2f X + %.2f X2 + %.2f", get_coef(regr3_fit)['X1'], get_coef(regr3_fit)['X2'], get_coef(regr3_fit)['(Intercept)']),
+            sprintf("%.2f X + %.2f X2 + %.2f X3 + %.2f", get_coef(regr4_fit)['X1'], get_coef(regr4_fit)['X2'], get_coef(regr4_fit)['X3'], get_coef(regr4_fit)['(Intercept)']),
+            sprintf("%.2f X + %.2f X2 + %.2f X3 + %.2f X4 + %.2f", get_coef(regr5_fit)['X1'], get_coef(regr5_fit)['X2'], get_coef(regr5_fit)['X3'], get_coef(regr5_fit)['X4'], get_coef(regr5_fit)['(Intercept)'])),
+  
+  Train_error = c(calculate_rmse(y_train, y_pred_train2$.pred),
+                  calculate_rmse(y_train, y_pred_train3$.pred),
+                  calculate_rmse(y_train, y_pred_train4$.pred),
+                  calculate_rmse(y_train, y_pred_train5$.pred)),
+  
+  Test_error = c(calculate_rmse(y_test, y_pred_test2$.pred),
+                 calculate_rmse(y_test, y_pred_test3$.pred),
+                 calculate_rmse(y_test, y_pred_test4$.pred),
+                 calculate_rmse(y_test, y_pred_test5$.pred)),
+  
+  Sum_of_Absolute_Weights = c(sum(abs(get_coef(regr2_fit))),
+                              sum(abs(get_coef(regr3_fit))),
+                              sum(abs(get_coef(regr4_fit))),
+                              sum(abs(get_coef(regr5_fit))))
+)
+
+# Plotting
+ggplot(results, aes(x = Sum_of_Absolute_Weights)) +
+  geom_line(aes(y = Train_error, color = "Train error"), linetype = "solid") +
+  geom_line(aes(y = Test_error, color = "Test error"), linetype = "dashed") +
+  labs(x = "Sum of Absolute Weights", y = "Error rate") +
+  theme_minimal()
+```
+
+-   From the above graph, it is evident that the Error in Testing is high when compared to Training. This means that the model is overfitting to the training set.
+
+```{r}
+results
+```
+
+## Ridge Regression
+
+Ridge regression is a statistical method for linear regression that is used to solve problems of multicollinearity. Multicollinearity occurs when two or more predictor variables in a regression model are highly correlated with each other. This can make it difficult to estimate the true coefficients of the predictor variables, and can lead to inaccurate predictions.
